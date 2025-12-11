@@ -24,6 +24,25 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
+def convert_to_serializable(obj):
+    """
+    Convert numpy arrays and other non-serializable objects to JSON-serializable format.
+    
+    Args:
+        obj: Object to convert
+        
+    Returns:
+        JSON-serializable version of the object
+    """
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {k: convert_to_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_to_serializable(item) for item in obj]
+    return obj
+
+
 class BCSDPipeline:
     """
     Complete pipeline for Binary Code Similarity Detection.
@@ -239,16 +258,6 @@ def main():
         
         # Save results
         if args.output:
-            # Convert numpy arrays to lists for JSON serialization
-            def convert_to_serializable(obj):
-                if isinstance(obj, np.ndarray):
-                    return obj.tolist()
-                elif isinstance(obj, dict):
-                    return {k: convert_to_serializable(v) for k, v in obj.items()}
-                elif isinstance(obj, list):
-                    return [convert_to_serializable(item) for item in obj]
-                return obj
-            
             serializable_result = convert_to_serializable(result)
             with open(args.output, 'w') as f:
                 json.dump(serializable_result, f, indent=2)
@@ -279,16 +288,6 @@ def main():
                     for p in similar_pairs
                 ]
             }
-            
-            # Convert numpy arrays to lists
-            def convert_to_serializable(obj):
-                if isinstance(obj, np.ndarray):
-                    return obj.tolist()
-                elif isinstance(obj, dict):
-                    return {k: convert_to_serializable(v) for k, v in obj.items()}
-                elif isinstance(obj, list):
-                    return [convert_to_serializable(item) for item in obj]
-                return obj
             
             serializable_output = convert_to_serializable(output_data)
             with open(args.output, 'w') as f:

@@ -193,9 +193,16 @@ class GNNProcessor:
             
         Returns:
             Edge index tensor [2, num_edges]
+            
+        Note:
+            This is a placeholder implementation that creates sequential edges.
+            In a production system, this should extract actual control flow edges
+            from the angr CFG by analyzing successor/predecessor relationships
+            between basic blocks.
         """
         # Placeholder implementation
-        # In practice, this should extract actual edges from the CFG
+        # TODO: Extract actual CFG edges from angr's control flow graph
+        # by accessing cfg.graph.edges() or node.successors/predecessors
         edges = []
         
         # Example: create edges between consecutive basic blocks
@@ -295,15 +302,22 @@ class GNNProcessor:
         block_embeddings = encoded_data.get('block_embeddings', {})
         function_embeddings = encoded_data.get('function_embeddings', {})
         
+        # Get original disassembly data if available to get proper function-to-block mapping
+        # For now, we'll process each function's embedding through a simple transformation
+        # since we don't have the actual CFG edge information in the encoded data
         enriched_functions = {}
         
-        for func_addr, func_encoding in function_embeddings.items():
-            # Create a minimal function_data dict with blocks
-            function_data = {'blocks': list(block_embeddings.keys())}
+        for func_addr, func_emb in function_embeddings.items():
+            # Create a single-node graph with the function embedding
+            # In a full implementation, this would use the actual CFG edges from disassembly
+            x = torch.tensor(func_emb.reshape(1, -1), dtype=torch.float32).to(self.device)
+            edge_index = torch.zeros((2, 0), dtype=torch.long).to(self.device)
             
-            # Process through GNN
-            enriched_emb = self.process_function(function_data, block_embeddings)
-            enriched_functions[func_addr] = enriched_emb
+            with torch.no_grad():
+                # Process through a simple transformation since we don't have graph structure
+                enriched_emb = self.model(x, edge_index)
+            
+            enriched_functions[func_addr] = enriched_emb.cpu().numpy().squeeze()
         
         logger.info(f"Processed {len(enriched_functions)} functions")
         

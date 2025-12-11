@@ -235,7 +235,8 @@ class BertEncoder:
         function_embeddings = {}
         for func_addr, func_data in functions.items():
             func_encoding = self.encode_function(func_data, basic_blocks)
-            function_embeddings[func_addr] = func_encoding
+            # Store only the function embedding, not the entire dict
+            function_embeddings[func_addr] = func_encoding['function_embedding']
         
         return {
             'binary_path': disassembly_data.get('binary_path'),
