@@ -1,214 +1,207 @@
 """
 Angr Disassembly Module for BCSD Model
 
-This module handles the disassembly of binary files using angr.
-It extracts control flow graphs, basic blocks, and instructions from binary executables.
+Extracts linearized instruction sequences and CFG structure from binary functions.
+Designed for Graph-Aware Language Model training.
 """
 
 import angr
 import logging
-from pathlib import Path
-from typing import Dict, List, Any
+from typing import List, Dict, Any, Optional
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Optional: Import visualization libraries (only needed for testing)
+try:
+    from angrutils import plot_cfg
+    VISUALIZATION_AVAILABLE = True
+except ImportError:
+    VISUALIZATION_AVAILABLE = False
+    logger.warning("angrutils not available. Install with: pip install angrutils")
 
-class AngrDisassembler:
+
+def extract_function_data(binary_path: str) -> List[Dict[str, Any]]:
     """
-    Handles binary disassembly using the angr framework.
+    Extract linearized instructions and CFG structure for all functions in a binary.
+    
+    Args:
+        binary_path: Path to the X64 ELF binary
+        
+    Returns:
+        List of dictionaries, one per function, containing:
+        - function_name: Name of the function
+        - function_address: Starting address of the function
+        - blocks: List of basic blocks with id, address, and instructions
+        - edges: List of directed edges [source_id, target_id] between blocks
     """
-    
-    def __init__(self, binary_path: str):
-        """
-        Initialize the disassembler with a binary file path.
+    try:
+        # Load binary (crucial: no system libraries)
+        logger.info(f"Loading binary: {binary_path}")
+        proj = angr.Project(binary_path, auto_load_libs=False)
         
-        Args:
-            binary_path: Path to the binary file to disassemble
-        """
-        self.binary_path = Path(binary_path)
-        self.project = None
-        self.cfg = None
+        # Generate CFG
+        logger.info("Generating Control Flow Graph...")
+        cfg = proj.analyses.CFGFast(normalize=True)
         
-    def load_binary(self) -> bool:
-        """
-        Load the binary file into angr project.
+        functions_data = []
         
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            logger.info(f"Loading binary: {self.binary_path}")
-            self.project = angr.Project(str(self.binary_path), auto_load_libs=False)
-            return True
-        except Exception as e:
-            logger.error(f"Error loading binary: {e}")
-            return False
-    
-    def generate_cfg(self) -> bool:
-        """
-        Generate Control Flow Graph for the binary.
-        
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            logger.info("Generating Control Flow Graph...")
-            self.cfg = self.project.analyses.CFGFast()
-            return True
-        except Exception as e:
-            logger.error(f"Error generating CFG: {e}")
-            return False
-    
-    def extract_functions(self) -> Dict[str, Any]:
-        """
-        Extract function information from the binary.
-        
-        Returns:
-            Dictionary containing function data
-        """
-        if not self.cfg:
-            logger.error("CFG not generated. Call generate_cfg() first.")
-            return {}
-        
-        functions_data = {}
-        for func_addr, func in self.cfg.kb.functions.items():
-            functions_data[func_addr] = {
-                'name': func.name,
-                'address': func_addr,
-                'size': func.size,
-                'blocks': [block.addr for block in func.blocks],
-                'is_plt': func.is_plt,
-                'is_simprocedure': func.is_simprocedure
-            }
-        
-        logger.info(f"Extracted {len(functions_data)} functions")
-        return functions_data
-    
-    def extract_basic_blocks(self) -> List[Dict[str, Any]]:
-        """
-        Extract basic block information from the binary.
-        
-        Returns:
-            List of basic block data
-        """
-        if not self.cfg:
-            logger.error("CFG not generated. Call generate_cfg() first.")
-            return []
-        
-        blocks_data = []
-        for node in self.cfg.graph.nodes():
-            if hasattr(node, 'block') and node.block:
-                block_data = {
-                    'address': node.addr,
-                    'size': node.size,
-                    'instructions': []
+        # Iterate through all functions
+        for func_addr, func in cfg.kb.functions.items():
+            # Skip system placeholders (SimProcedures, PLT stubs, external functions)
+            if func.is_simprocedure or func.is_plt:
+                continue
+            
+            # Skip unresolvable targets and unnamed functions starting with 'sub_'
+            # (optional - you can include 'sub_' functions if needed for analysis)
+            if func.name in ['UnresolvableCallTarget', 'UnresolvableJumpTarget']:
+                continue
+            
+            try:
+                # Extract blocks and sort by address for linearization
+                blocks_list = sorted(func.blocks, key=lambda b: b.addr)
+                
+                # Build address-to-id mapping for edge creation
+                addr_to_id = {block.addr: idx for idx, block in enumerate(blocks_list)}
+                
+                # Extract block data with instructions
+                blocks_data = []
+                for block_id, block in enumerate(blocks_list):
+                    try:
+                        # Get Capstone disassembly
+                        instructions = []
+                        for insn in block.capstone.insns:
+                            # Concatenate mnemonic and operands
+                            token = f"{insn.mnemonic} {insn.op_str}".strip()
+                            instructions.append(token)
+                        
+                        blocks_data.append({
+                            "id": block_id,
+                            "address": hex(block.addr),
+                            "instructions": instructions
+                        })
+                    except Exception as e:
+                        logger.warning(f"Failed to disassemble block at {hex(block.addr)}: {e}")
+                        continue
+                
+                # Extract CFG edges between blocks
+                edges = []
+                for block in blocks_list:
+                    source_id = addr_to_id.get(block.addr)
+                    if source_id is None:
+                        continue
+                    
+                    # Get successors from CFG graph
+                    for successor in cfg.graph.successors(block):
+                        target_addr = successor.addr
+                        target_id = addr_to_id.get(target_addr)
+                        
+                        # Only include edges within this function's blocks
+                        if target_id is not None:
+                            edges.append([source_id, target_id])
+                
+                # Build function data structure
+                function_data = {
+                    "function_name": func.name,
+                    "function_address": hex(func_addr),
+                    "blocks": blocks_data,
+                    "edges": edges
                 }
                 
-                # Extract instructions from the block
-                try:
-                    block = self.project.factory.block(node.addr, size=node.size)
-                    for insn in block.capstone.insns:
-                        block_data['instructions'].append({
-                            'address': insn.address,
-                            'mnemonic': insn.mnemonic,
-                            'op_str': insn.op_str
-                        })
-                except Exception as e:
-                    logger.warning(f"Error extracting instructions from block at {hex(node.addr)}: {e}")
+                functions_data.append(function_data)
                 
-                blocks_data.append(block_data)
+            except Exception as e:
+                logger.warning(f"Error processing function {func.name} at {hex(func_addr)}: {e}")
+                continue
         
-        logger.info(f"Extracted {len(blocks_data)} basic blocks")
-        return blocks_data
-    
-    def disassemble(self) -> Dict[str, Any]:
-        """
-        Main method to perform complete disassembly.
+        logger.info(f"Successfully extracted {len(functions_data)} functions")
+        return functions_data
         
-        Returns:
-            Dictionary containing all disassembly data
-        """
-        if not self.load_binary():
-            return {}
-        
-        if not self.generate_cfg():
-            return {}
-        
-        result = {
-            'binary_path': str(self.binary_path),
-            'functions': self.extract_functions(),
-            'basic_blocks': self.extract_basic_blocks()
-        }
-        
-        return result
+    except Exception as e:
+        logger.error(f"Error loading or analyzing binary: {e}")
+        return []
 
 
-def disassemble_binary(binary_path: str) -> Dict[str, Any]:
+def visualize_function_cfg(binary_path: str, function_name: Optional[str] = None, output_path: str = "cfg_visualization.pdf"):
     """
-    Convenience function to disassemble a binary file.
+    Visualize the CFG for a specific function or the entire binary (for testing purposes).
     
     Args:
-        binary_path: Path to the binary file
-        
+        binary_path: Path to the binary
+        function_name: Name of specific function to visualize (None for full CFG)
+        output_path: Where to save the visualization (PDF format)
+    
     Returns:
-        Dictionary containing disassembly data
+        True if successful, False otherwise
     """
-    disassembler = AngrDisassembler(binary_path)
-    return disassembler.disassemble()
-
-
-def disassemble_binaries_folder(folder_path: str) -> Dict[str, Dict[str, Any]]:
-    """
-    Disassemble all binaries in a folder.
+    if not VISUALIZATION_AVAILABLE:
+        logger.error("Visualization not available. Install angr-utils: pip install angr-utils")
+        return False
     
-    Args:
-        folder_path: Path to folder containing binary files
+    try:
+        logger.info(f"Loading binary for visualization: {binary_path}")
+        proj = angr.Project(binary_path, auto_load_libs=False)
+        cfg = proj.analyses.CFGFast(normalize=True)
         
-    Returns:
-        Dictionary mapping binary names to their disassembly data
-    """
-    folder = Path(folder_path)
-    if not folder.exists() or not folder.is_dir():
-        logger.error(f"Invalid folder path: {folder_path}")
-        return {}
-    
-    results = {}
-    binary_files = [f for f in folder.iterdir() if f.is_file()]
-    
-    logger.info(f"Found {len(binary_files)} files in {folder_path}")
-    
-    for binary_file in binary_files:
-        logger.info(f"Processing: {binary_file.name}")
-        try:
-            result = disassemble_binary(str(binary_file))
-            if result:
-                results[binary_file.name] = result
-        except Exception as e:
-            logger.error(f"Error processing {binary_file.name}: {e}")
-    
-    logger.info(f"Successfully disassembled {len(results)} binaries")
-    return results
+        if function_name:
+            # Visualize specific function
+            logger.info(f"Visualizing function: {function_name}")
+            func = cfg.kb.functions.get_by_name(function_name)
+            if not func:
+                logger.error(f"Function '{function_name}' not found")
+                return False
+            func = list(func)[0]  # Get first match
+            plot_cfg(cfg, output_path, func_addr=func.addr, format="pdf")
+        else:
+            # Visualize entire CFG
+            logger.info("Visualizing entire CFG")
+            plot_cfg(cfg, output_path, format="pdf")
+        
+        logger.info(f"Visualization saved to: {output_path}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error during visualization: {e}")
+        return False
 
 
 if __name__ == "__main__":
     import sys
+    import json
     
     if len(sys.argv) < 2:
-        print("Usage: python angr_disassembly.py <binary_path_or_folder>")
+        print("Usage:")
+        print("  python angr_disassembly.py <binary_path> [--save] [--visualize [function_name]]")
+        print("\nOptions:")
+        print("  --save              Save function data to JSON")
+        print("  --visualize [func]  Visualize CFG (optional: specify function name)")
         sys.exit(1)
     
-    path = sys.argv[1]
-    path_obj = Path(path)
+    binary_path = sys.argv[1]
     
-    if path_obj.is_file():
-        result = disassemble_binary(path)
-        print(f"Disassembled {path}")
-        print(f"Functions: {len(result.get('functions', {}))}")
-        print(f"Basic Blocks: {len(result.get('basic_blocks', []))}")
-    elif path_obj.is_dir():
-        results = disassemble_binaries_folder(path)
-        print(f"Disassembled {len(results)} binaries from {path}")
-    else:
-        print(f"Invalid path: {path}")
-        sys.exit(1)
+    # Check for visualization flag
+    if "--visualize" in sys.argv:
+        viz_idx = sys.argv.index("--visualize")
+        func_name = sys.argv[viz_idx + 1] if len(sys.argv) > viz_idx + 1 and not sys.argv[viz_idx + 1].startswith("--") else None
+        output = f"{func_name}_cfg.pdf" if func_name else "full_cfg.pdf"
+        visualize_function_cfg(binary_path, func_name, output)
+        sys.exit(0)
+    
+    # Extract function data
+    functions_data = extract_function_data(binary_path)
+    
+    # Print summary
+    print(f"\nExtracted {len(functions_data)} functions")
+    for func in functions_data[:3]:  # Show first 3 as examples
+        print(f"\nFunction: {func['function_name']} @ {func['function_address']}")
+        print(f"  Blocks: {len(func['blocks'])}")
+        print(f"  Edges: {len(func['edges'])}")
+        if func['blocks']:
+            print(f"  Sample instructions: {func['blocks'][0]['instructions'][:3]}")
+    
+    # Optionally save to JSON
+    if "--save" in sys.argv:
+        output_file = "function_data.json"
+        with open(output_file, 'w') as f:
+            json.dump(functions_data, f, indent=2)
+        print(f"\nSaved to {output_file}")
