@@ -1,0 +1,50 @@
+# Model Configuration for BCSD Pipeline
+# Configure all model architecture hyperparameters here
+
+# GNN Encoder (GAT) Configuration
+gnn:
+  type: "GAT"  # Graph Attention Network
+  input_dim: 768  # Dimension of node features (from BERT embeddings)
+  hidden_dim: 256  # Hidden dimension for GAT layers
+  output_dim: 256  # Graph summary dimension (configurable: 128, 256, or 512 for experimentation)
+  num_layers: 3  # Number of GAT layers
+  num_heads: 4  # Number of attention heads per layer
+  dropout: 0.2  # Dropout rate
+  activation: "leaky_relu"  # Activation function
+  pooling: "attention"  # Global pooling method: "attention", "mean", or "max"
+
+# BERT Configuration
+bert:
+  model_name: "bert-base-uncased"  # Pretrained BERT model
+  hidden_size: 768  # BERT hidden dimension
+  num_attention_heads: 12  # Number of attention heads
+  num_hidden_layers: 12  # Number of transformer layers
+  freeze_embeddings: true  # Whether to freeze BERT embeddings initially
+  max_seq_length: 512  # Maximum sequence length
+
+# Custom Attention Configuration
+custom_attention:
+  graph_dim: 256  # Dimension of graph summary input (must match gnn.output_dim)
+  hidden_size: 768  # BERT hidden size (must match bert.hidden_size)
+  num_heads: 12  # Number of attention heads (must match bert.num_attention_heads)
+  deep_injection: true  # Inject prefix into all 12 layers (always true)
+
+# Assembly Tokenizer Configuration
+tokenizer:
+  vocab_size: 5000  # Maximum vocabulary size (configurable, actual size may be smaller)
+  max_seq_length: 512  # Maximum sequence length
+  special_tokens:
+    pad: 0
+    cls: 101
+    sep: 102
+    mask: 103
+    unk: 104
+
+# Model Integration
+model:
+  name: "BCSD"
+  components:
+    - "GNN"
+    - "CustomAttention"
+    - "BERT"
+  output_dim: 768  # Final embedding dimension (from BERT [CLS] token)

@@ -1,0 +1,78 @@
+# Training Configuration for BCSD Pipeline
+# Configure all training hyperparameters here
+
+# Model Configuration
+model:
+  node_feature_dim: 128
+  gnn_hidden_dim: 256
+  gnn_output_dim: 256
+  gnn_num_layers: 3
+  gnn_num_heads: 4
+  bert_model_name: "bert-base-uncased"
+  dropout: 0.1
+
+# Data Configuration
+data:
+  metadata_path: "data/metadata.csv"
+  vocab_path: "data/vocab.json"
+  max_seq_length: 512
+
+# Training Setup
+training:
+  seed: 42  # Random seed for reproducibility
+  epochs: 10  # Total training epochs
+  batch_size: 16  # Batch size (provides 8 positive pairs + in-batch negatives)
+  learning_rate: 0.00002  # 2e-5
+  weight_decay: 0.01  # L2 regularization
+  gradient_clip_max_norm: 1.0
+  
+  # Loss Configuration
+  lambda_contrastive: 0.5  # Weight for contrastive loss
+  mlm_mask_prob: 0.15  # Probability of masking tokens
+  contrastive_temperature: 0.07  # Temperature for InfoNCE
+  
+  # Checkpointing
+  checkpoint_dir: "checkpoints"
+  save_every_n_epochs: 1
+  keep_top_k_checkpoints: 3
+  
+  # Logging
+  log_dir: "logs"
+  log_every_n_steps: 10
+  
+  # Early stopping
+  early_stopping_patience: 3
+  early_stopping_delta: 0.001
+  save_every_n_epochs: 1  # Save checkpoint after each epoch
+  save_dir: "checkpoints"
+  keep_best_only: false  # Keep all checkpoints (for thesis experiments)
+  filename_template: "model_epoch_{epoch:02d}_valloss_{val_loss:.4f}.pt"
+  
+# Logging
+logging:
+  log_dir: "logs"
+  log_level: "INFO"
+  # Epoch-based logging to CSV
+  metrics_file: "training_metrics.csv"
+  # Columns: epoch, train_loss, val_loss, mlm_loss, contrastive_loss, total_loss
+  log_every_n_epochs: 1
+  
+# Gradient Clipping
+gradient_clipping:
+  enabled: true
+  max_norm: 1.0  # Clip gradients to prevent exploding gradients
+  
+# Mixed Precision Training (optional, for faster training)
+mixed_precision:
+  enabled: false  # Set to true if GPU supports FP16
+  
+# Dataset Splits
+data:
+  train_projects: ["clamav", "curl", "nmap", "openssl"]
+  validation_projects: ["unrar"]
+  test_projects: ["z3", "zlib"]
+  
+# Reproducibility
+reproducibility:
+  deterministic: true  # Use deterministic CUDA operations
+  benchmark: false  # Disable CUDA benchmark for reproducibility
