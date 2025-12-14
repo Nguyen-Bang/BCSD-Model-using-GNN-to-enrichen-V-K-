@@ -1,0 +1,98 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% Page geometry
+\geometry{margin=1in}
+
+% Hyperref setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    citecolor=blue,
+    pdfauthor={Nguyen Bang},
+    pdftitle={BCSD Model using GNN to Enrich Vector-Knowledge Embeddings},
+    pdfsubject={Bachelor Thesis - Binary Code Similarity Detection},
+    pdfkeywords={Binary Analysis, Graph Neural Networks, BERT, Code Similarity}
+}
+
+% Code listings style
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!60!black},
+    stringstyle=\color{red},
+    showstringspaces=false,
+    tabsize=2
+}
+
+% Title information
+\title{
+    \textbf{Binary Code Similarity Detection using Graph Neural Networks}\\
+    \large{Enriching Vector Embeddings with Control Flow Graph Knowledge}
+}
+\author{Nguyen Bang}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This thesis presents a novel approach to binary code similarity detection by combining
+Graph Neural Networks (GNN) with BERT-based language models. The proposed BCSD
+(Binary Code Similarity Detection) model integrates control flow graph information
+into sequence embeddings through a custom key-value prefix attention mechanism.
+By processing both the structural properties of binary code (via GNN) and the
+sequential instruction patterns (via BERT), the model generates rich function-level
+embeddings suitable for cross-platform and cross-compiler binary similarity detection.
+
+The research demonstrates that deep integration of graph-based structural knowledge
+into transformer attention layers yields superior performance compared to traditional
+concatenation-based fusion approaches. Experimental results on real-world binaries
+compiled with different optimizations and architectures validate the effectiveness
+of the proposed architecture.
+
+\textbf{Keywords:} Binary Analysis, Graph Neural Networks, BERT, Code Similarity,
+Control Flow Graph, Attention Mechanism, Siamese Networks
+\end{abstract}
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+% Include chapters
+\include{introduction}
+\include{related_work}
+\include{methodology}
+\include{architecture}
+\include{experiments}
+\include{results}
+\include{discussion}
+\include{conclusion}
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\appendix
+\include{appendix_code}
+\include{appendix_data}
+
+\end{document}
