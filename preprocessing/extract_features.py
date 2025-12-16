@@ -135,12 +135,12 @@ def extract_single_cfg(
         
         # Extract edges
         edges = []
-        for src, dst in cfg.graph.edges():
+        for src, dst, data in cfg.graph.edges(data=True):
             if hasattr(src, 'addr') and hasattr(dst, 'addr'):
                 src_id = node_id_map.get(src.addr)
                 dst_id = node_id_map.get(dst.addr)
                 if src_id is not None and dst_id is not None:
-                    edges.append([src_id, dst_id])
+                    edges.append([src_id, dst_id, data.get('jumpkind', 'Ijk_Boring')])
         
         # Find entry points
         entry_points = []
@@ -357,12 +357,13 @@ def extract_cfg(
                     continue
             
             # Extract edges for this function
-            for src, dst in cfg.graph.edges():
+            for src, dst, data in cfg.graph.edges(data=True):
                 if hasattr(src, 'addr') and hasattr(dst, 'addr'):
                     if src.addr in local_id_map and dst.addr in local_id_map:
                         function_edges.append([
                             local_id_map[src.addr],
-                            local_id_map[dst.addr]
+                            local_id_map[dst.addr],
+                            data.get('jumpkind', 'Ijk_Boring')
                         ])
             
             # Add function data
@@ -435,15 +436,16 @@ def extract_cfg(
 
 
 if __name__ == "__main__":
-    # Simple CLI for testing Phase 2
+    import argparse
     import sys
+    import os
     
-    if len(sys.argv) < 2:
-        print("Usage: python extract_features.py <binary_path> [output_dir]")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Extract CFG features from binary")
+    parser.add_argument("binary_path", help="Path to binary file")
+    parser.add_argument("output_dir", nargs="?", help="Directory to save JSON output")
+    parser.add_argument("--visualize", action="store_true", help="Generate CFG visualization (requires angr-utils)")
     
-    binary_path = sys.argv[1]
-    output_dir = sys.argv[2] if len(sys.argv) > 2 else None
+    args = parser.parse_args()
     
     # Setup simple logging
     logging.basicConfig(
@@ -451,7 +453,8 @@ if __name__ == "__main__":
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    result = extract_single_cfg(binary_path, output_dir)
+    # Standard JSON extraction
+    result = extract_single_cfg(args.binary_path, args.output_dir)
     
     if result["status"] == "success":
         print(f"\n✓ CFG extraction successful!")
@@ -464,3 +467,42 @@ if __name__ == "__main__":
     else:
         print(f"\n✗ CFG extraction failed: {result['error']}")
         sys.exit(1)
+
+    # Visualization (Debugging only)
+    if args.visualize:
+        print("\n--- Generating Visualization ---")
+        try:
+            from angrutils import plot_cfg
+            
+            # We re-run analysis here to keep extract_single_cfg pure
+            print(f"Reloading {args.binary_path} for visualization...")
+            project = angr.Project(
+                args.binary_path,
+                auto_load_libs=False,
+                load_debug_info=True
+            )
+            
+            print("Re-running CFGFast...")
+            cfg = project.analyses.CFGFast(normalize=True, force_complete_scan=False)
+            
+            # Determine output name
+            bin_name = os.path.basename(args.binary_path)
+            output_name = f"{bin_name}_cfg"
+            if args.output_dir:
+                output_name = os.path.join(args.output_dir, output_name)
+            
+            print(f"Plotting to {output_name}...")
+            plot_cfg(
+                cfg, 
+                output_name, 
+                asminst=True, 
+                remove_imports=True, 
+                remove_path_terminator=True
+            )
+            print(f"✓ Visualization saved to {output_name}.png (and .dot)")
+            
+        except ImportError:
+            print("✗ Error: 'angr-utils' or 'bingraphvis' not installed.")
+            print("  Install with: pip install angr-utils bingraphvis")
+        except Exception as e:
+            print(f"✗ Visualization failed: {e}")
