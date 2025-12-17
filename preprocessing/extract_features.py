@@ -256,7 +256,7 @@ def extract_cfg(
     Args:
         binary_path: Path to binary
         output_dir: Output directory for preprocessed/{hash}.json
-        tokenizer: AssemblyTokenizer instance (optional, for tokenization)
+        tokenizer: ClapASMTokenizer instance (optional, for tokenization)
         timeout: Analysis timeout in seconds
         
     Returns:

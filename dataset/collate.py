@@ -110,46 +110,49 @@ def _collate_binary_list(binary_list: List[Dict]) -> Dict[str, Any]:
     Returns:
         Dictionary with padded tokens, attention masks, edges, node counts
     """
-    # Extract tokens (T031 - sequence padding)
-    token_sequences = []
-    for binary in binary_list:
-        # Convert token strings to placeholder IDs (proper tokenization in training)
-        # For now, just use hash of token string as simple ID
-        tokens = binary["tokens"]
-        if not tokens:
-            tokens = ["<PAD>"]  # Fallback for empty sequences
-        token_sequences.append(tokens)
+    # Check if we have pre-tokenized data
+    has_token_ids = any("token_ids" in b and b["token_ids"] is not None for b in binary_list)
     
-    # Find max length in batch (T031)
-    max_len = max(len(tokens) for tokens in token_sequences)
+    if has_token_ids:
+        # Use pre-tokenized IDs
+        sequences = [b.get("token_ids", []) or [] for b in binary_list]
+        pad_id = 1  # CLAP-ASM pad_token_id
+    else:
+        # Use raw tokens strings (legacy)
+        sequences = [b.get("tokens", []) or ["<PAD>"] for b in binary_list]
+        pad_id = "<PAD>"
+        
+    # Find max length
+    max_len = max((len(seq) for seq in sequences), default=0)
     
-    # Pad sequences (T031)
-    padded_tokens = []
+    # Pad sequences
+    padded_sequences = []
     attention_masks = []
     
-    for tokens in token_sequences:
-        actual_len = len(tokens)
+    for seq in sequences:
+        actual_len = len(seq)
+        padding_len = max_len - actual_len
         
-        # For now, just store as strings (will be converted to IDs in model)
-        # In production, this would use tokenizer.vocab to convert to IDs
-        padded = tokens + ["<PAD>"] * (max_len - actual_len)
-        padded_tokens.append(padded)
+        # Pad
+        padded = seq + [pad_id] * padding_len
+        padded_sequences.append(padded)
         
-        # Create attention mask (T031)
-        mask = [1] * actual_len + [0] * (max_len - actual_len)
+        # Create attention mask
+        mask = [1] * actual_len + [0] * padding_len
         attention_masks.append(mask)
     
     # Extract graph data (T032)
-    edges = [binary["edges"] for binary in binary_list]
-    node_counts = torch.tensor([binary["node_count"] for binary in binary_list], dtype=torch.long)
+    edges = [binary.get("edges", []) for binary in binary_list]
+    node_counts = torch.tensor([binary.get("node_count", 0) for binary in binary_list], dtype=torch.long)
     
-    # Note: We keep edges as list of lists (not batched into single tensor)
-    # This is because graph sizes vary - proper graph batching happens in GNN model
-    # using PyTorch Geometric's Batch.from_data_list()
+    # Convert to tensor if using IDs
+    if has_token_ids:
+        padded_sequences = torch.tensor(padded_sequences, dtype=torch.long)
+        attention_masks = torch.tensor(attention_masks, dtype=torch.long)
     
     return {
-        "tokens": padded_tokens,  # List of token lists (batch_size, max_len)
-        "attention_mask": torch.tensor(attention_masks, dtype=torch.long),  # [batch_size, max_len]
+        "tokens": padded_sequences,  # Tensor [batch, max_len] or List[List[str]]
+        "attention_mask": attention_masks,  # Tensor [batch, max_len]
         "edges": edges,  # List of edge lists
         "node_counts": node_counts  # [batch_size]
     }
@@ -163,7 +166,7 @@ def collate_with_tokenizer(tokenizer):
     to convert token strings to IDs.
     
     Args:
-        tokenizer: AssemblyTokenizer instance
+        tokenizer: ClapASMTokenizer instance
         
     Returns:
         Collate function with tokenizer closure

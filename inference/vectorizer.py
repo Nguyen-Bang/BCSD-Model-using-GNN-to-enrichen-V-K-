@@ -18,7 +18,7 @@ import numpy as np
 import torch
 
 from preprocessing.extract_features import extract_single_cfg
-from preprocessing.tokenizer import AssemblyTokenizer
+from preprocessing.tokenizer import ClapASMTokenizer
 
 logger = logging.getLogger("bcsd.inference")
 
@@ -41,7 +41,7 @@ class Vectorizer:
     Example:
         >>> vectorizer = Vectorizer(
         ...     checkpoint_path="checkpoints/model_best.pt",
-        ...     vocab_path="data/vocab.json"
+        ...     vocab_path="data/vocab.json"  # Argument kept for compat, ignored by ClapASM
         ... )
         >>> 
         >>> # Vectorize single binary
@@ -64,17 +64,16 @@ class Vectorizer:
         
         Args:
             checkpoint_path: Path to trained model checkpoint
-            vocab_path: Path to tokenizer vocabulary
+            vocab_path: Path to tokenizer vocabulary (Ignored for ClapASM)
             device: Device for inference ("cuda" or "cpu")
             max_seq_length: Maximum sequence length for tokenization
         """
         self.device = device if torch.cuda.is_available() else "cpu"
         self.max_seq_length = max_seq_length
         
-        # Load tokenizer
-        self.tokenizer = AssemblyTokenizer(vocab_size=5000)
-        self.tokenizer.load_vocab(vocab_path)
-        logger.info(f"Loaded tokenizer from {vocab_path}")
+        # Load tokenizer (ClapASM loads its own vocab from preprocessing/clap_asm_tokenizer)
+        self.tokenizer = ClapASMTokenizer(max_seq_length=max_seq_length)
+        logger.info(f"Loaded ClapASM tokenizer")
         
         # Load model
         self.model = self._load_model(checkpoint_path)
@@ -148,46 +147,55 @@ class Vectorizer:
             start_time = time.time()
             
             # Step 1: Extract CFG
-            cfg_data = extract_single_cfg(binary_path, timeout=timeout)
+            cfg_data_result = extract_single_cfg(binary_path, timeout=timeout)
             
-            if not cfg_data or not cfg_data.get("nodes"):
+            if not cfg_data_result or cfg_data_result["status"] != "success":
                 logger.warning(f"Failed to extract CFG from {binary_path}")
                 return None
+                
+            cfg_data = cfg_data_result["cfg_data"]
             
             # Step 2: Tokenize instructions
-            # Collect all instructions from nodes
+            # Collect all instructions from nodes to form a single sequence for BERT
             all_instructions = []
             for node in cfg_data["nodes"]:
-                all_instructions.extend(node["instructions"])
+                # instructions is list of dicts, get 'full' text
+                for inst in node["instructions"]:
+                    all_instructions.append(inst.get("full", ""))
             
             # Tokenize
-            tokens, attention_mask = self.tokenizer.tokenize(
+            token_res = self.tokenizer.tokenize(
                 all_instructions,
-                max_length=self.max_seq_length
+                add_special_tokens=True
             )
+            tokens = token_res["token_ids"]
+            mask = token_res["attention_mask"]
             
             # Convert to tensors
             input_ids = torch.tensor([tokens], dtype=torch.long).to(self.device)
-            attention_mask = torch.tensor([attention_mask], dtype=torch.long).to(self.device)
+            attention_mask = torch.tensor([mask], dtype=torch.long).to(self.device)
             
             # Step 3: Create graph data
-            from torch_geometric.data import Data
-            
             num_nodes = len(cfg_data["nodes"])
             
             # Create dummy node features (in real case, would use instruction embeddings)
             node_features = torch.randn(num_nodes, 128).to(self.device)
             
-            # Build edge index
+            # Build edge index from [src, dst, type] list
             edge_list = []
             node_id_to_idx = {node["id"]: idx for idx, node in enumerate(cfg_data["nodes"])}
             
             for edge in cfg_data["edges"]:
-                src_idx = node_id_to_idx.get(edge["source"])
-                tgt_idx = node_id_to_idx.get(edge["target"])
-                
-                if src_idx is not None and tgt_idx is not None:
-                    edge_list.append([src_idx, tgt_idx])
+                # edge is [src_id, dst_id, type]
+                if len(edge) >= 2:
+                    src_id = edge[0]
+                    dst_id = edge[1]
+                    
+                    src_idx = node_id_to_idx.get(src_id)
+                    tgt_idx = node_id_to_idx.get(dst_id)
+                    
+                    if src_idx is not None and tgt_idx is not None:
+                        edge_list.append([src_idx, tgt_idx])
             
             if edge_list:
                 edge_index = torch.tensor(edge_list, dtype=torch.long).t().contiguous().to(self.device)
@@ -217,7 +225,7 @@ class Vectorizer:
             return embedding_np
         
         except Exception as e:
-            logger.error(f"Failed to vectorize {binary_path}: {e}")
+            logger.error(f"Failed to vectorize {binary_path}: {e}", exc_info=True)
             return None
     
     def vectorize_directory(

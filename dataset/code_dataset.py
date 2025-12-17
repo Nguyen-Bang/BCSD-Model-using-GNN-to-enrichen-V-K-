@@ -224,18 +224,22 @@ class BinaryCodeDataset(Dataset):
             elif "functions" in data:
                 # New format from extract_cfg() - merge all functions
                 all_tokens = []
+                all_token_ids = []
                 all_edges = []
                 total_nodes = 0
                 
                 for func in data.get("functions", []):
                     for node in func.get("nodes", []):
                         all_tokens.extend(node.get("instructions", []))
+                        if "token_ids" in node:
+                            all_token_ids.extend(node["token_ids"])
                     all_edges.extend(func.get("edges", []))
                     total_nodes += len(func.get("nodes", []))
                 
                 return {
                     "file_hash": file_hash,
                     "tokens": all_tokens,
+                    "token_ids": all_token_ids if all_token_ids else None,
                     "edges": all_edges,
                     "node_count": total_nodes,
                     "edge_count": len(all_edges),
