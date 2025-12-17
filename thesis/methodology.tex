@@ -183,56 +183,174 @@ validating the practical applicability of the approach.
 This section documents the iterative development process of the BCSD model,
 providing transparency into the research methodology and implementation decisions.
 
-% Session logs will be automatically appended here by end_session.sh
+% Session logs are automatically appended here by end\_session.sh
 
 
-\subsection{Development Session: 2025-12-15}
+\subsection{Development Session: 2025-12-14}
 
-\textbf{Summary:} Test summary
+\textbf{Summary:} Complete implementation of session management system and code cleanup
 
-\textbf{Duration:} 0h 0m
+\textbf{Duration:} Multiple sessions throughout the day
 
-\textbf{Key Achievements:}
+\textbf{Project Status - Completed Phases:}
 \begin{itemize}
-  \item Achievement 1
-  \item Achievement 2
+  \item Phase 1: Setup (T001-T009)
+  \item Phase 2: Foundational - Test Binary Validation (T010-T014)
+  \item Phase 3: User Story 1 - Preprocessing (T015-T026)
+  \item Phase 4: User Story 2 - Dataset Implementation (T027-T036)
+  \item Phase 5: User Story 3 - GNN Encoder (T037-T045)
+  \item Phase 6: User Story 4 - Custom Attention (T046-T058)
+  \item Phase 7: User Story 5 - BERT Integration (T059-T070)
+  \item Phase 8: User Story 6 - Demonstration Notebook (T071-T073)
+  \item Phase 9: User Story 7 - Training Infrastructure (T074-T089)
+  \item Phase 10: User Story 8 - Vectorization \& Inference (T090-T101)
 \end{itemize}
 
-\subsection{Development Session: 2025-12-14}
+\textbf{Implementation Work:}
+\begin{itemize}
+  \item Implemented complete User Story 9 (Session Management System)
+  \item Created scripts/start\_session.sh with structured session template (T102-T103)
+  \item Created scripts/end\_session.sh with summary extraction and LaTeX integration (T104-T105)
+  \item Set up complete thesis LaTeX structure (T106-T107)
+  \item Enhanced end\_session.sh script with automatic git workflow: stage changes, commit with session summary, push to remote
+  \item Comprehensive code cleanup: removed duplicate hash functions, unified JSON creators, cleaned imports
+  \item Updated .gitignore to properly track all implementation files while excluding generated outputs
+  \item Modified end\_session.sh to use git add -A for comprehensive file tracking
+\end{itemize}
 
-\textbf{Summary:} today was mostly implementation
+\textbf{Architecture and Design Decisions:}
+\begin{itemize}
+  \item \textbf{Pipeline Architecture:} 8-phase sequential pipeline from binary executable to similarity search
+  \item \textbf{Data Format Design:} Unified JSON schema with binary\_hash, functions array, nodes with token\_ids and attention\_mask, edges as CFG edge list
+  \item \textbf{angr CFGFast Parameters:} normalize=True for non-overlapping basic blocks (crucial for consistent GNN node embeddings), force\_complete\_scan=False to reduce noise
+  \item \textbf{Siamese Training Architecture:} Same model instance processes multiple inputs sequentially within batch with shared weights
+  \item \textbf{Session Management:} Mandatory LaTeX extraction for thesis documentation, automatic protocol parsing, git workflow automation
+\end{itemize}
 
-\textbf{Duration:} 0h 7m
-
-
-\subsection{Development Session: 2025-12-14}
-
-\textbf{Summary:} Code cleanup and consistency improvements
-
-\textbf{Duration:} 0h 2m
+\textbf{Technical Specifications:}
+\begin{itemize}
+  \item \textbf{Preprocessing Output:} data/preprocessed/\{hash\}.json containing binary\_hash, functions with nodes (id, addr, instructions, token\_ids, attention\_mask), edges as CFG adjacency, metadata (total\_nodes, total\_edges, total\_functions, processing\_time)
+  \item \textbf{Dataset Loading:} metadata.csv indexes all binaries, dynamic pairing groups by (project, function\_name)
+  \item \textbf{Collation Format:} Heterogeneous batching handles variable-length sequences (padding) and variable-size graphs (separate lists with batch indices)
+  \item \textbf{GNN Input:} node\_features [total\_nodes, 768], edge\_index [2, total\_edges] in COO format, batch tensor for graph assignment
+  \item \textbf{BERT with Graph Prefix:} Projects graph\_summary to K/V prefixes, concatenates to sequence K/V in all 12 layers, extends attention mask for prefix
+  \item \textbf{Training Loss:} Joint loss = MLM + $\lambda$ * Contrastive, InfoNCE with temperature=0.07, $\lambda \in \{0.3, 0.5, 0.7\}$
+\end{itemize}
 
 \textbf{Research Insights:}
 \begin{itemize}
-  \item `thesis/methodology.tex`: Methodology chapter with session log integration
-  \item `thesis/architecture.tex`: Architecture chapter template
+  \item Code cleanup improved maintainability: eliminated all duplicate functions (compute\_hash, create\_unified\_json)
+  \item Session management system enables continuous thesis documentation from day one
+  \item All module imports verified working after cleanup
+  \item .gitignore properly configured: tracks implementation code, excludes Dataset-1/, generated JSON files, model checkpoints
 \end{itemize}
 
-\subsection{Development Session: 2025-12-14}
-
-\textbf{Summary:} Implementation and code improvements
-
-\textbf{Duration:} 0h 4m
-
-\textbf{Research Insights:}
-\begin{itemize}
-  \item Performance**: <1 second for 10,000 embeddings (pure NumPy, CPU-only)
-  \item `thesis/methodology.tex`: Methodology chapter with session log integration
-  \item `thesis/architecture.tex`: Architecture chapter template
-\end{itemize}
 
 \subsection{Development Session: 2025-12-16}
 
+\textbf{Summary:} Enhanced CFG extraction with visualization and edge semantics
+
+\textbf{Duration:} Morning session
+
+\textbf{Implementation Work:}
+\begin{itemize}
+  \item Added --visualize flag to preprocessing/extract\_features.py using angr-utils for CFG plot generation
+  \item Updated edge extraction to include jumpkind metadata (e.g., Ijk\_Call, Ijk\_Ret, Ijk\_Boring) for control flow semantics
+  \item Simplified test\_binaries/test\_gnn.c to reduce CFG complexity (removed stdio.h and printf)
+  \item Achieved significant CFG reduction: Nodes 67→41, Edges 86→44
+  \item Deleted obsolete test\_binaries/test\_disassembly.py
+  \item Successfully generated CFG visualization: .gemini/tmp/test\_output/test\_gnn\_gcc\_O0\_cfg.png
+\end{itemize}
+
+\textbf{Architecture and Design Decisions:}
+\begin{itemize}
+  \item \textbf{CFG Extraction Strategy - normalize=True:} Ensures non-overlapping basic blocks, crucial for consistent GNN node embeddings. Without normalization, overlapping blocks would create ambiguous node representations.
+  \item \textbf{CFG Extraction Strategy - force\_complete\_scan=False:} Reduces noise and processing time by analyzing only code reachable from entry points. Prevents angr from treating data sections as code.
+  \item \textbf{Entry Points:} Starting addresses (e.g., \_start, function starts) from which control flow analysis begins. Critical for ensuring we analyze reachable code only.
+  \item \textbf{Edge Metadata - jumpkind:} Captures semantic relationships (calls, returns, branches) for potential use in GNN edge attributes. Enables the model to distinguish between different types of control flow.
+  \item \textbf{Visualization Strategy:} Solid lines for standard flow (Ijk\_Boring, Ijk\_Call), dotted lines for analysis artifacts (Ijk\_FakeRet), color-coded by edge type (Blue=Call, Green=FakeRet, Black=Standard).
+\end{itemize}
+
+\textbf{Technical Specifications:}
+\begin{itemize}
+  \item \textbf{angr.analyses.CFGFast parameters:} normalize creates clean graphs for GNNs, force\_complete\_scan=False avoids analyzing data as code
+  \item \textbf{Edge jumpkind types:} Ijk\_Call (function calls), Ijk\_Ret (returns), Ijk\_Boring (standard control flow), Ijk\_FakeRet (analysis artifacts)
+  \item \textbf{Visualization dependencies:} System package graphviz required for CFG plotting, but extraction runs fine without it
+  \item \textbf{CFG complexity metrics:} Simplified test binary achieved 39\% node reduction and 49\% edge reduction
+\end{itemize}
+
+\textbf{Research Insights:}
+\begin{itemize}
+  \item Entry points are critical starting locations for CFG traversal, ensuring we analyze reachable code rather than data sections
+  \item The normalize parameter in CFGFast is essential for creating clean, non-overlapping basic blocks suitable for GNN processing
+  \item Including jumpkind in edge attributes enables richer semantic representation of control flow, potentially improving similarity detection
+  \item Minimal test binaries significantly reduce CFG complexity, making validation faster and clearer
+  \item angr-utils visualization provides intuitive understanding of CFG structure with color-coded edge types
+\end{itemize}
+
+\textbf{Next Steps:}
+\begin{itemize}
+  \item Full dataset processing: Re-run batch preprocessing on Dataset-1 to regenerate all JSONs with new jumpkind edge attribute
+  \item Dataset loader update: Modify dataset/code\_dataset.py to parse jumpkind string and include as edge attributes in PyG data objects
+  \item Consider edge type encoding: Evaluate whether one-hot encoding or simple integer enum is sufficient for GAT/GCN models
+\end{itemize}
+
+
+\subsection{Development Session: 2025-12-17}
+
 \textbf{Summary:} Implementation and code improvements
 
-\textbf{Duration:} 0h 1m
+\textbf{Duration:} 0h 0m
 
+\textbf{Project Status - Completed Phases:}
+\begin{itemize}
+  \item Phase 1: Setup (T001-T009)
+  \item Phase 2: Foundational - Test Binary Validation (T010-T014)
+  \item Phase 3: User Story 1 - Preprocessing (T015-T026)
+  \item Phase 4: User Story 2 - Dataset Implementation (T027-T036)
+  \item Phase 5: User Story 3 - GNN Encoder (T037-T045)
+  \item Phase 6: User Story 4 - Custom Attention (T046-T058)
+  \item Phase 7: User Story 5 - BERT Integration (T059-T070)
+  \item Phase 8: User Story 6 - Demonstration Notebook (T071-T073)
+  \item Phase 9: User Story 7 - Training Infrastructure (T074-T089)
+  \item Phase 10: User Story 8 - Vectorization & Inference (T090-T101)
+\end{itemize}
+
+\textbf{Implementation Work:}
+\begin{itemize}
+  \item What: A wrapper class for the pre-trained CLAP-ASM tokenizer from Hugging Face.
+  \item Why: To provide a robust, assembly-aware BPE tokenizer that handles out-of-vocabulary terms better than a simple whitespace splitter.
+  \item Uses `transformers.PreTrainedTokenizerFast`.
+  \item Loads vocabulary from `preprocessing/clap\\_asm\\_tokenizer`.
+  \item Joins instruction lists into a single string for tokenization (standard NLP approach).
+  \item Returns `token\\_ids` and `attention\\_mask` compatible with our pipeline.
+  \item Contribution to System: Improves the quality of input features for the BERT component of the BCSD model.
+  \item Created `preprocessing/clap\\_asm\\_tokenizer/` to store artifacts.
+\end{itemize}
+
+\textbf{Architecture and Design Decisions:}
+This section documents the architectural choices made during implementation,
+including the rationale behind key decisions and their impact on the overall system.
+\begin{itemize}
+  \item Context: Direct usage of `AutoTokenizer.from\\_pretrained()` creates dependencies on external services and introduces interface mismatches with our existing pipeline. Options Considered: Decision: **Option 2 (Adapter Pattern)** Rationale:
+\end{itemize}
+
+\textbf{Decision Rationale and Justification:}
+The following rationale guided implementation decisions:
+\begin{itemize}
+  \item **Domain Specificity**: Vocabulary includes `mov`, `rax`, `0x` etc. as whole tokens.
+  \item **Robustness**: BPE handles arbitrary literals/labels via subword decomposition.
+  \item **Integration**: Standard HF interface makes it easy to swap in.
+  \item Downloaded vocab locally to avoid runtime dependency on HF Hub.
+  \item Wrapped in `ClapASMTokenizer` to match our project's interface.
+  \item **Offline Support**: Enables training/inference on isolated research clusters.
+  \item **Security**: Avoids `trust\\_remote\\_code=True` by using the standard, safe `PreTrainedTokenizerFast` implementation with local data.
+  \item Created `preprocessing/clap\\_asm\\_tokenizer/` to store artifacts.
+  \item Implemented `ClapASMTokenizer.tokenize()` to handle list-to-string joining, effectively decoupling the preprocessing logic from the tokenization specifics.
+  \item **Impact on system**:
+\end{itemize}
+
+\textbf{Research Insights:}
+\begin{itemize}
+  \item ClapASMTokenizer Performance**: Achieved >99.7% vocabulary coverage (only 0.27% UNK rate) on test binary `test_gnn_gcc_O0` without any fine-tuning.
+\end{itemize}

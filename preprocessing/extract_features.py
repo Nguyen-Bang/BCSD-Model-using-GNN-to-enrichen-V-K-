@@ -64,7 +64,7 @@ def extract_single_cfg(
                 "binary_path": str,
                 "cfg_data": {
                     "nodes": List[dict],  # Basic blocks
-                    "edges": List[List[int]],  # Edge list
+                    "edges": List[List[Any]],  # Edge list [src, dst, jumpkind]
                     "node_count": int,
                     "edge_count": int,
                     "entry_points": List[int]
@@ -242,7 +242,7 @@ def extract_cfg(
                         "attention_mask": [int]
                     }
                 ],
-                "edges": [[src_id, dst_id]]  # Edge list for this function's CFG
+                "edges": [[src_id, dst_id, jumpkind]]  # Edge list for this function's CFG
             }
         ],
         "metadata": {

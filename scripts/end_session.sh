@@ -288,7 +288,7 @@ echo -e "${GREEN}✓ Session file updated${NC}"
 
 # Extract to LaTeX (ALWAYS - required for thesis documentation)
 echo ""
-echo -e "${BLUE}Extracting to LaTeX methodology chapter...${NC}"
+echo -e "${BLUE}Comprehensively extracting thesis-relevant data to LaTeX...${NC}"
 
 THESIS_DIR="thesis"
 METHODOLOGY_FILE="${THESIS_DIR}/methodology.tex"
@@ -308,7 +308,171 @@ providing transparency into the research methodology and implementation decision
 LATEX_EOF
 fi
 
-# Append session summary to LaTeX
+# Extract comprehensive thesis-relevant content from protocol
+# This parses the entire protocol file to extract:
+# 1. Implementation decisions and rationale
+# 2. Architecture choices
+# 3. Experimental findings
+# 4. Technical challenges and solutions
+# 5. Phase completion status
+
+echo -e "${BLUE}  - Analyzing protocol for architecture decisions...${NC}"
+
+# Extract architecture and design decisions with full context
+ARCHITECTURE_NOTES=$(awk '
+/^## Technical Decisions|^### Decision Log|^#### Decision/ {
+    in_decision = 1
+    decision_text = ""
+}
+in_decision && /^\*\*Decision\*\*:|^\*\*Context\*\*:|^\*\*Rationale\*\*:|^\*\*Options Considered\*\*:/ {
+    line = $0
+    gsub(/^\*\*/, "", line)
+    gsub(/\*\*:/, ":", line)
+    gsub(/\\/, "\\\\", line)
+    gsub(/_/, "\\\\_", line)
+    decision_text = decision_text (decision_text ? " " : "") line
+}
+in_decision && /^## / && !/^## Technical/ {
+    if (decision_text) print decision_text
+    in_decision = 0
+}
+/Architecture|Design Decision|Data Format Design|Pipeline|Module:/ {
+    if (!in_decision && length($0) > 30) {
+        line = $0
+        gsub(/^[- *]+/, "", line)
+        gsub(/\\/, "\\\\", line)
+        gsub(/_/, "\\\\_", line)
+        if (line !~ /^(Morning|Afternoon|Evening|Session Goals|Current Status)/) {
+            print line
+        }
+    }
+}
+END {
+    if (in_decision && decision_text) print decision_text
+}
+' "${SESSION_FILE}" | head -15)
+
+echo -e "${BLUE}  - Extracting implementation details (what/why/how)...${NC}"
+
+# Extract detailed implementation with what/why/how structure
+IMPLEMENTATION_DETAILS=$(awk '
+/^## Implementation Details|^### Functions\/Components/ {
+    in_impl = 1
+}
+in_impl && /^\*\*What\*\*:|^\*\*Why\*\*:|^\*\*How\*\*:|^\*\*Contribution to System\*\*:/ {
+    line = $0
+    gsub(/^\*\*/, "", line)
+    gsub(/\*\*:/, ":", line)
+    gsub(/\\/, "\\\\", line)
+    gsub(/_/, "\\\\_", line)
+    if (length(line) > 10 && length(line) < 180) {
+        print line
+    }
+}
+in_impl && /^- [A-Za-z]/ {
+    line = $0
+    gsub(/^- /, "", line)
+    gsub(/\\/, "\\\\", line)
+    gsub(/_/, "\\\\_", line)
+    if (length(line) > 15 && length(line) < 150) {
+        print line
+    }
+}
+in_impl && /^## / && !/^## Implementation/ {
+    in_impl = 0
+}
+/^- (Implemented|Created|Built|Designed|Set up|Configured|Added|Enhanced)/ {
+    if (!in_impl) {
+        line = $0
+        gsub(/^- /, "", line)
+        gsub(/\\/, "\\\\", line)
+        gsub(/_/, "\\\\_", line)
+        if (length(line) > 20 && length(line) < 150) {
+            print line
+        }
+    }
+}
+' "${SESSION_FILE}" | head -20)
+
+echo -e "${BLUE}  - Extracting technical specifications and parameters...${NC}"
+
+# Extract technical specifications with focus on parameters and their purposes
+TECHNICAL_SPECS=$(awk '
+/Key parameters|parameters and their purposes|Parameter:|Configuration:/ {
+    line = $0
+    gsub(/^[- *]+/, "", line)
+    gsub(/\\/, "\\\\", line)
+    gsub(/_/, "\\\\_", line)
+    if (length(line) > 20 && length(line) < 180) {
+        print line
+    }
+}
+/\*\*Input Format\*\*:|Output Format|Processing steps|Integration points/ {
+    line = $0
+    gsub(/^\*\*/, "", line)
+    gsub(/\*\*:/, ":", line)
+    gsub(/\\/, "\\\\", line)
+    gsub(/_/, "\\\\_", line)
+    if (length(line) > 15 && length(line) < 180) {
+        print line
+    }
+}
+/Performance implications|Expected behavior|Expected impact/ {
+    line = $0
+    gsub(/^[- *]+/, "", line)
+    gsub(/\\/, "\\\\", line)
+    gsub(/_/, "\\\\_", line)
+    if (length(line) > 20 && length(line) < 180) {
+        print line
+    }
+}
+' "${SESSION_FILE}" | head -15)
+
+echo -e "${BLUE}  - Extracting rationale and justifications...${NC}"
+
+# Extract WHY decisions were made - the rationale
+RATIONALE_NOTES=$(awk '
+/\*\*Rationale\*\*:|Decision rationale:|Why this option|Alignment with research goals/ {
+    capture_next = 1
+    line = $0
+    gsub(/^\*\*/, "", line)
+    gsub(/\*\*:/, ":", line)
+    gsub(/^[- *]+/, "", line)
+    gsub(/\\/, "\\\\", line)
+    gsub(/_/, "\\\\_", line)
+    if (length(line) > 15) print line
+    next
+}
+capture_next && /^[- ]/ {
+    line = $0
+    gsub(/^[- ]+/, "", line)
+    gsub(/\\/, "\\\\", line)
+    gsub(/_/, "\\\\_", line)
+    if (length(line) > 20 && length(line) < 180) {
+        print line
+    }
+}
+capture_next && /^[^- ]/ && length($0) < 5 {
+    capture_next = 0
+}
+' "${SESSION_FILE}" | head -10)
+
+echo -e "${BLUE}  - Extracting phase completion status...${NC}"
+
+# Extract completed phases
+COMPLETED_PHASES=$(awk '
+/^### Completed Phases/,/^### Pending/ {
+    if (/✅ Phase/) {
+        line = $0
+        gsub(/.*✅ /, "", line)
+        gsub(/\\/, "\\\\", line)
+        gsub(/_/, "\\\\_", line)
+        print line
+    }
+}
+' "${SESSION_FILE}")
+
+# Now build comprehensive LaTeX section
 cat >> "${METHODOLOGY_FILE}" << LATEX_EOF
 
 \subsection{Development Session: ${SESSION_DATE}}
@@ -319,7 +483,76 @@ cat >> "${METHODOLOGY_FILE}" << LATEX_EOF
 
 LATEX_EOF
 
-# Add achievements if any
+# Add completed phases if any
+if [ -n "$COMPLETED_PHASES" ]; then
+    echo '\textbf{Project Status - Completed Phases:}' >> "${METHODOLOGY_FILE}"
+    echo '\begin{itemize}' >> "${METHODOLOGY_FILE}"
+    while IFS= read -r phase; do
+        if [ -n "$phase" ]; then
+            echo "  \\item ${phase}" >> "${METHODOLOGY_FILE}"
+        fi
+    done <<< "$COMPLETED_PHASES"
+    echo '\end{itemize}' >> "${METHODOLOGY_FILE}"
+    echo "" >> "${METHODOLOGY_FILE}"
+fi
+
+# Add implementation details
+if [ -n "$IMPLEMENTATION_DETAILS" ]; then
+    echo '\textbf{Implementation Work:}' >> "${METHODOLOGY_FILE}"
+    echo '\begin{itemize}' >> "${METHODOLOGY_FILE}"
+    while IFS= read -r detail; do
+        if [ -n "$detail" ]; then
+            echo "  \\item ${detail}" >> "${METHODOLOGY_FILE}"
+        fi
+    done <<< "$IMPLEMENTATION_DETAILS"
+    echo '\end{itemize}' >> "${METHODOLOGY_FILE}"
+    echo "" >> "${METHODOLOGY_FILE}"
+fi
+
+# Add architecture notes with decision context
+if [ -n "$ARCHITECTURE_NOTES" ]; then
+    echo '\textbf{Architecture and Design Decisions:}' >> "${METHODOLOGY_FILE}"
+    echo 'This section documents the architectural choices made during implementation,' >> "${METHODOLOGY_FILE}"
+    echo 'including the rationale behind key decisions and their impact on the overall system.' >> "${METHODOLOGY_FILE}"
+    echo '\begin{itemize}' >> "${METHODOLOGY_FILE}"
+    while IFS= read -r note; do
+        if [ -n "$note" ]; then
+            echo "  \\item ${note}" >> "${METHODOLOGY_FILE}"
+        fi
+    done <<< "$ARCHITECTURE_NOTES"
+    echo '\end{itemize}' >> "${METHODOLOGY_FILE}"
+    echo "" >> "${METHODOLOGY_FILE}"
+fi
+
+# Add rationale notes - the WHY behind decisions
+if [ -n "$RATIONALE_NOTES" ]; then
+    echo '\textbf{Decision Rationale and Justification:}' >> "${METHODOLOGY_FILE}"
+    echo 'The following rationale guided implementation decisions:' >> "${METHODOLOGY_FILE}"
+    echo '\begin{itemize}' >> "${METHODOLOGY_FILE}"
+    while IFS= read -r rationale; do
+        if [ -n "$rationale" ]; then
+            echo "  \\item ${rationale}" >> "${METHODOLOGY_FILE}"
+        fi
+    done <<< "$RATIONALE_NOTES"
+    echo '\end{itemize}' >> "${METHODOLOGY_FILE}"
+    echo "" >> "${METHODOLOGY_FILE}"
+fi
+
+# Add technical specifications with parameters
+if [ -n "$TECHNICAL_SPECS" ]; then
+    echo '\textbf{Technical Specifications and Parameters:}' >> "${METHODOLOGY_FILE}"
+    echo 'Key technical details including parameters, configurations, and expected behavior:' >> "${METHODOLOGY_FILE}"
+    echo '\begin{itemize}' >> "${METHODOLOGY_FILE}"
+    while IFS= read -r spec; do
+        if [ -n "$spec" ]; then
+            echo "  \\item ${spec}" >> "${METHODOLOGY_FILE}"
+        fi
+    done <<< "$TECHNICAL_SPECS"
+    echo '\end{itemize}' >> "${METHODOLOGY_FILE}"
+    echo "" >> "${METHODOLOGY_FILE}"
+fi
+
+# Add originally extracted achievements
 if [ ${#ACHIEVEMENTS[@]} -gt 0 ]; then
     echo '\textbf{Key Achievements:}' >> "${METHODOLOGY_FILE}"
     echo '\begin{itemize}' >> "${METHODOLOGY_FILE}"
@@ -330,7 +563,7 @@ if [ ${#ACHIEVEMENTS[@]} -gt 0 ]; then
     echo "" >> "${METHODOLOGY_FILE}"
 fi
 
-# Add thesis-relevant insights if any
+# Add thesis-relevant insights
 if [ ${#THESIS_INSIGHTS[@]} -gt 0 ]; then
     echo '\textbf{Research Insights:}' >> "${METHODOLOGY_FILE}"
     echo '\begin{itemize}' >> "${METHODOLOGY_FILE}"
@@ -340,7 +573,7 @@ if [ ${#THESIS_INSIGHTS[@]} -gt 0 ]; then
     echo '\end{itemize}' >> "${METHODOLOGY_FILE}"
 fi
 
-echo -e "${GREEN}✓ LaTeX updated: ${METHODOLOGY_FILE}${NC}"
+echo -e "${GREEN}✓ LaTeX updated with comprehensive thesis-relevant data${NC}"
 
 # Display session statistics
 echo ""

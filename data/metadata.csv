@@ -1,3 +1,0 @@
-file_hash,project,function_name,optimization,compiler,split_set,file_path,file_size_bytes,node_count,edge_count,token_count,preprocessing_status
-1549af6d854615013148ed3ea33b0469acaaf469746525b963dcaefe27bf9992,test,gnn,O3,gcc,test,/home/nguyen-bang/BCSD-Model-using-GNN-to-enrichen-V-K-/test_binaries/test_gnn_gcc_O3,19720,76,97,880,success
-d3e46981f8da62e4207c2117bebdb7a01f6a4625f1fc003287a128c3340945cd,test,gnn,O0,gcc,test,/home/nguyen-bang/BCSD-Model-using-GNN-to-enrichen-V-K-/test_binaries/test_gnn_gcc_O0,17768,67,86,804,success

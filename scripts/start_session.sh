@@ -117,23 +117,66 @@ cat > "${SESSION_FILE}" << 'EOF'
 
 ---
 
-## Technical Decisions
+## Implementation Details (What, Why, How)
+
+### Functions/Components Created/Modified
+
+#### Component: [Name]
+**What**: [Brief description of what was implemented]
+
+**Why**: [Rationale for this implementation choice]
+- Problem being solved:
+- Alternatives considered:
+- Decision rationale:
+
+**How**: [Technical implementation details]
+- Key parameters and their purposes:
+- Integration with existing system:
+- Expected behavior/output:
+
+**Contribution to System**: [How this contributes to overall BCSD pipeline]
+
+---
+
+## Technical Decisions & Architecture Choices
 
 ### Decision Log
-*Record any architectural or implementation decisions*
+*Record any architectural or implementation decisions with full justification*
 
-1. **Decision**: 
-   - **Rationale**: 
-   - **Impact**: 
+#### Decision 1: [Title]
+**Context**: [What problem or requirement led to this decision]
+
+**Options Considered**:
+1. Option A: [Description]
+   - Pros: 
+   - Cons:
+2. Option B: [Description]
+   - Pros:
+   - Cons:
+
+**Decision**: [Chosen option]
+
+**Rationale**: [Why this option was chosen]
+- Performance implications:
+- Maintainability considerations:
+- Alignment with research goals:
+
+**Implementation Details**:
+- Parameters/configurations used:
+- Integration points:
+- Expected impact on pipeline:
 
 ---
 
 ## Code Changes
 
 ### Files Modified
-*List files changed with brief description*
+*List files changed with brief description of WHY each change was needed*
 
-- `path/to/file.py`: Description of changes
+- `path/to/file.py`: 
+  - **What changed**: 
+  - **Why**: 
+  - **Impact on system**:
 
 ### Tests Added/Modified
 *List test files affected*

@@ -1,0 +1,18 @@
+{
+    "1": "endbr64",
+    "2": "mov     edx, 6",
+    "3": "xor     eax, eax",
+    "4": "cmp     edx, eax",
+    "5": "jle     short INSTR14",
+    "6": "mov     ecx, [rdi+rax*4]",
+    "7": "mov     esi, [rdi+rax*4+4]",
+    "8": "cmp     ecx, esi",
+    "9": "jle     short INSTR12",
+    "10": "mov     [rdi+rax*4], esi",
+    "11": "mov     [rdi+rax*4+4], ecx",
+    "12": "inc     rax",
+    "13": "jmp     short INSTR4",
+    "14": "dec     edx",
+    "15": "jnz     short INSTR3",
+    "16": "retn"
+}
