@@ -1,0 +1,10 @@
+train:
+  - z3
+  - openssl
+  - nmap
+  - clamav
+validation:
+  - curl
+test:
+  - unrar
+  - zlib

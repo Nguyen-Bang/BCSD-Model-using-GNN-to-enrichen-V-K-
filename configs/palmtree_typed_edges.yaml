@@ -1,0 +1,56 @@
+# PalmTree node embeddings with bidirectional typed CFG edges.
+backbone_checkpoint: "checkpoints/baseline_with_features/seed_0/best_model.pt"
+
+gnn:
+  input_dim: 128
+  hidden_dim: 256
+  num_layers: 3
+  gat_heads: 4
+  pool_heads: 10
+  attention_dropout: 0.1
+  attention_mode: tanh_per_pair
+  encoder_type: graph
+  use_edge_features: true
+  num_edge_types: 11
+  edge_emb_dim: 16
+  use_reverse_edges: true
+  prefix_source: gnn
+
+model:
+  num_layers: 3
+  hidden_size: 768
+  num_heads: 12
+  vocab_size: 33555
+  max_seq_length: 1024
+  embed_dim: 768
+  func_feature_dim: 132
+  dropout: 0.1
+  clap_embedding_init: true
+
+data:
+  data_dir: "reduced_data_palmtree_full"
+  preload: true
+  num_workers: 0
+  sampling_scale_factor: 50
+
+training:
+  batch_size: 64
+  grad_accum_steps: 4
+  learning_rate: 0.00005
+  weight_decay: 0.01
+  temperature: 0.07
+  warmup_steps: 100
+  max_epochs: 50
+  patience: 15
+  gradient_clip: 1.0
+  precision: bf16
+  ranking_eval_interval: 5
+  checkpoint_dir: "checkpoints/palmtree_typed_edges"
+  lambda_contrastive: 1.0
+  lambda_struct: 0.3
+  modality_dropout:
+    enabled: true
+    ratio: 0.4
+    side: a_only
+    warmup_epochs: 5
+    drop_function_features: true

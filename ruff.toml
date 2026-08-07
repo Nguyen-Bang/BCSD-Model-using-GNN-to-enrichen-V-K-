@@ -1,0 +1,8 @@
+target-version = "py313"
+line-length = 100
+[lint]
+select = ["B", "E", "F", "I", "SIM", "UP"]
+ignore = ["E501"]
+
+[lint.per-file-ignores]
+"tests/test_preprocessing.py" = ["E402"]

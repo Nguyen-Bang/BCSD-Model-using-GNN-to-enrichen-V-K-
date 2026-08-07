@@ -1,0 +1,78 @@
+# Datasets and generated artifacts
+/Dataset-1/
+/data/
+/reduced_data/
+/checkpoints/
+/results/
+/artifacts/
+/embeddings/
+/runs/
+/wandb/
+/mlruns/
+*.pt
+*.pth
+*.ckpt
+*.npy
+
+# Private research material
+/BA Related work/
+/claude_md_docs/
+/docs/
+/thesis/
+/protocols/
+/presentation/
+/experiments/
+/logs/
+/output/
+/tmp/
+/.claude/
+/.github/
+/.markitdown_venv/
+/.pdf-skill-copy.md
+/.vscode/
+/utils/
+/visualize_cfg.py
+/Untitled
+/demonstration.ipynb
+/thesis-overleaf-source.zip
+/Code_Generated_Image.png
+/gnn_explore.pdf
+/test_gnn_cfg.png
+/.codex*
+/PalmTree/
+/CLAP/
+/HermesSim/
+
+# Keep documentation limited to the public README
+*.md
+!/README.md
+*.pdf
+*.pptx
+*.ipynb
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Local tools and editors
+.env
+.env.*
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Build test binaries from source when needed
+/test_binaries/*
+!/test_binaries/*.c

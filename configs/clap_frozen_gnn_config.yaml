@@ -1,0 +1,53 @@
+model:
+  variant: gnn
+  pretrained_model: hustcw/clap-asm
+  revision: 620f4beba2edce172e8f35e263399716494950c9
+  hidden_size: 768
+  embed_dim: 768
+  func_feature_dim: 132
+  dropout: 0.1
+
+gnn:
+  input_dim: 20
+  hidden_dim: 256
+  num_layers: 3
+  gat_heads: 4
+  pool_heads: 10
+  prefix_dim: 256
+  multi_token: true
+  attention_dropout: 0.1
+  attention_mode: tanh_per_pair
+  encoder_type: graph
+  use_edge_features: true
+  num_edge_types: 11
+  edge_emb_dim: 16
+  use_reverse_edges: true
+  prefix_source: gnn
+
+data:
+  data_dir: reduced_data
+  preload: true
+  num_workers: 0
+  sampling_scale_factor: 50
+
+training:
+  batch_size: 16
+  grad_accum_steps: 16
+  learning_rate: 0.00005
+  weight_decay: 0.01
+  temperature: 0.07
+  warmup_steps: 200
+  max_epochs: 150
+  patience: 30
+  gradient_clip: 1.0
+  precision: fp16
+  ranking_eval_interval: 5
+  checkpoint_dir: checkpoints/clap_frozen_gnn
+  lambda_contrastive: 1.0
+  lambda_struct: 0.1
+  modality_dropout:
+    enabled: true
+    ratio: 0.4
+    side: a_only
+    warmup_epochs: 5
+    drop_function_features: true
